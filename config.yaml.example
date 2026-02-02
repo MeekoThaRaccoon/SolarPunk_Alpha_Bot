@@ -1,0 +1,160 @@
+# SolarPunk Alpha Bot Configuration
+# Copy to config.yaml and edit
+
+bot:
+  name: "solar-alpha-001"
+  mode: "paper"  # paper, real, simulation
+  scan_interval_hours: 6
+  risk_tolerance: "medium"  # low, medium, high
+  max_daily_trades: 3
+  timezone: "America/New_York"
+
+redistribution:
+  enabled: true
+  split:
+    crisis: 50  # percentage to crisis orgs
+    you: 30     # percentage to you
+    network: 20 # percentage to SolarPunk network growth
+  
+  crisis_orgs:
+    - name: "World Central Kitchen"
+      wallet: "0x1234567890abcdef1234567890abcdef12345678"
+      percentage: 25
+      chain: "ethereum"
+      
+    - name: "Doctors Without Borders (MSF)"
+      wallet: "0xabcdef1234567890abcdef1234567890abcdef12"
+      percentage: 15
+      chain: "polygon"
+      
+    - name: "UNRWA (Palestine)"
+      wallet: "0x7890abcdef1234567890abcdef1234567890abcd"
+      percentage: 10
+      chain: "ethereum"
+  
+  your_wallet: "0xYOUR_ETHEREUM_ADDRESS_HERE"
+  network_fund: "0xSOLARPUNK_NETWORK_ADDRESS"
+  
+  # Minimum donation amounts (USD)
+  min_donation: 1.00
+  batch_donations: true  # Group donations to save gas
+
+trading:
+  paper_starting_balance: 1000.00  # USD
+  
+  allowed_markets:
+    - crypto
+    - prediction
+    # - stocks  # Coming soon
+  
+  max_position_size: 100.00  # USD per trade
+  max_total_exposure: 300.00  # USD across all trades
+  
+  stop_loss: 10  # percentage
+  take_profit: 25  # percentage
+  
+  # Exchange settings (if using real mode)
+  exchanges:
+    binance:
+      enabled: false
+      api_key: ""
+      api_secret: ""
+    
+    alpaca:
+      enabled: false
+      api_key: ""
+      api_secret: ""
+      paper: true
+
+ai:
+  model_path: "./models/llama-3.2-7b-q4_k_m.gguf"
+  context_size: 4096
+  temperature: 0.7
+  max_tokens: 512
+  
+  # Analysis prompts (can be customized)
+  prompts:
+    market_analysis: "Analyze this market data. Consider volatility, trends, news. Should we trade? Why?"
+    risk_assessment: "What are the risks? What could go wrong?"
+    ethical_check: "Is this trade aligned with SolarPunk values? Does it exploit anyone?"
+
+data_sources:
+  crypto:
+    - BTC-USD
+    - ETH-USD
+    - SOL-USD
+    - ADA-USD
+    - DOT-USD
+  
+  prediction_markets:
+    predictit:
+      enabled: true
+      markets:
+        - "US Presidential Election"
+        - "Federal Reserve Decisions"
+    
+    polymarket:
+      enabled: true
+      api_key: ""  # Optional
+  
+  news:
+    rss_feeds:
+      - "https://cointelegraph.com/rss"
+      - "https://www.coindesk.com/arc/outboundfeeds/rss/"
+    check_interval: 60  # minutes
+
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  console: true
+  file: true
+  file_path: "./logs/bot.log"
+  
+  public_ledger:
+    enabled: true
+    type: "google_sheets"  # google_sheets, csv, sqlite
+    sheet_id: ""  # Your Google Sheet ID
+    update_interval: 30  # minutes
+
+dashboard:
+  enabled: true
+  port: 8080
+  host: "0.0.0.0"
+  password: ""  # Set for basic auth
+  
+  public_view: true  # Allow anyone to view (read-only)
+  public_url: ""  # If exposing to internet
+
+# Emergency settings
+emergency:
+  stop_on_loss: 20  # percentage of total portfolio
+  pause_on_volatility: 50  # VIX or similar threshold
+  manual_override: true  # Allow stopping via dashboard
+  
+  notifications:
+    email: ""
+    telegram:
+      enabled: false
+      bot_token: ""
+      chat_id: ""
+
+# Performance tracking
+performance:
+  track_metrics: true
+  benchmark: "SPY"  # Compare to S&P 500
+  report_interval: "weekly"  # daily, weekly, monthly
+  
+  # Share anonymized data with network (optional)
+  share_anonymized: true
+  contribution_weight: 0.1  # How much your strategies influence others
+
+# Advanced
+advanced:
+  use_gpu: false
+  gpu_layers: 0
+  
+  backup_interval: 24  # hours
+  backup_to_ipfs: false
+  
+  # Tax reporting
+  generate_tax_reports: true
+  tax_year: 2026
