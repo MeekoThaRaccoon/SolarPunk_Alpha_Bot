@@ -21,7 +21,7 @@ An open-source, zero-cost trading/research agent that:
 
 ## 🚀 Quick Start
 
-### Install (2 minutes):
+## Install (2 minutes):
 ```bash
 git clone https://github.com/SolarPunk-Infra/Alpha-Bot.git
 cd Alpha-Bot
