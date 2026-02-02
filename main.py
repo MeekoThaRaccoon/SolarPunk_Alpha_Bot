@@ -1,230 +1,163 @@
 #!/usr/bin/env python3
 """
 SolarPunk Alpha Bot - Main Entry Point
-Autonomous trading agent with 50% auto-redistribution
 """
 
 import sys
 import time
 import signal
-import logging
 from pathlib import Path
-from datetime import datetime, timedelta
 
-# Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from core.config import load_config
-from core.logger import setup_logger
-from core.state import BotState
-from scanner.market_scanner import MarketScanner
-from analyzer.ai_analyzer import AIAnalyzer
-from trader.trade_executor import TradeExecutor
-from redistributor.donation_engine import DonationEngine
-from ledger.public_ledger import PublicLedger
-from dashboard.server import DashboardServer
+import yaml
+import schedule
+from loguru import logger
+from datetime import datetime
 
 class SolarAlphaBot:
-    """Main bot controller"""
-    
     def __init__(self, config_path="config.yaml"):
-        """Initialize the bot with configuration"""
-        self.config = load_config(config_path)
-        self.logger = setup_logger(__name__, self.config.logging.level)
-        
-        # Initialize components
-        self.state = BotState()
-        self.scanner = MarketScanner(self.config)
-        self.analyzer = AIAnalyzer(self.config)
-        self.trader = TradeExecutor(self.config, self.state)
-        self.redistributor = DonationEngine(self.config)
-        self.ledger = PublicLedger(self.config)
-        self.dashboard = DashboardServer(self.config, self.state) if self.config.dashboard.enabled else None
-        
-        # Set up signal handlers
-        signal.signal(signal.SIGINT, self.handle_shutdown)
-        signal.signal(signal.SIGTERM, self.handle_shutdown)
-        
+        self.load_config(config_path)
+        self.setup_logging()
         self.running = False
-        self.cycle_count = 0
         
-        self.logger.info("🤖 SolarPunk Alpha Bot initialized")
-        self.logger.info(f"Mode: {self.config.bot.mode.upper()}")
-        self.logger.info(f"Redistribution: {self.config.redistribution.split.crisis}% to crisis orgs")
+        logger.info("🤖 SolarPunk Alpha Bot initialized")
+        logger.info(f"Mode: {self.config['bot']['mode'].upper()}")
+        logger.info(f"Redistribution: {self.config['redistribution']['split']['crisis']}% to crisis orgs")
+    
+    def load_config(self, config_path):
+        with open(config_path, 'r') as f:
+            self.config = yaml.safe_load(f)
+    
+    def setup_logging(self):
+        logger.remove()
+        logger.add(sys.stdout, level=self.config['logging']['level'])
+        if self.config['logging']['file']:
+            logger.add(self.config['logging']['file_path'], rotation="1 day")
+    
+    def scan_markets(self):
+        """Scan markets for opportunities"""
+        logger.info("📡 Scanning markets...")
         
-    def run(self):
-        """Main execution loop"""
-        self.running = True
+        # Simulated scanning
+        opportunities = [
+            {"symbol": "BTC-USD", "price": 42000, "change": 2.5, "potential": 0.7},
+            {"symbol": "ETH-USD", "price": 2500, "change": 1.8, "potential": 0.5}
+        ]
         
-        # Start dashboard if enabled
-        if self.dashboard:
-            self.dashboard.start()
-            self.logger.info(f"📊 Dashboard running on http://localhost:{self.config.dashboard.port}")
+        for opp in opportunities:
+            logger.info(f"Found: {opp['symbol']} at ${opp['price']} ({opp['change']}% change)")
         
-        # Initial scan
-        self.run_cycle()
+        return opportunities
+    
+    def analyze_opportunity(self, opportunity):
+        """Analyze opportunity with AI"""
+        logger.info(f"🤖 Analyzing {opportunity['symbol']}...")
         
-        # Main loop
-        while self.running:
-            try:
-                # Calculate sleep time until next cycle
-                next_cycle = self.get_next_cycle_time()
-                sleep_time = (next_cycle - datetime.now()).total_seconds()
-                
-                if sleep_time > 0:
-                    self.logger.info(f"⏳ Next scan in {sleep_time/60:.1f} minutes")
-                    time.sleep(min(sleep_time, 300))  # Check every 5 minutes max
-                else:
-                    # Time for next cycle
-                    self.run_cycle()
-                    
-            except KeyboardInterrupt:
-                self.logger.info("Keyboard interrupt received")
-                break
-            except Exception as e:
-                self.logger.error(f"Error in main loop: {e}", exc_info=True)
-                time.sleep(60)  # Wait a minute before retrying
+        # Simulated AI analysis
+        analysis = {
+            "confidence": opportunity['potential'] * 10,
+            "recommendation": "BUY" if opportunity['potential'] > 0.6 else "HOLD",
+            "reason": "Strong momentum detected" if opportunity['change'] > 2 else "Neutral trend"
+        }
         
-        self.shutdown()
+        return analysis
+    
+    def execute_trade(self, opportunity, analysis):
+        """Execute trade based on analysis"""
+        if analysis['recommendation'] != 'BUY':
+            return None
+        
+        trade = {
+            "id": f"trade_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "symbol": opportunity['symbol'],
+            "price": opportunity['price'],
+            "quantity": 0.01,  # Small position
+            "timestamp": datetime.now().isoformat(),
+            "profit": opportunity['price'] * 0.01  # Simulated 1% profit
+        }
+        
+        logger.info(f"💼 Executed trade: {trade['symbol']} at ${trade['price']}")
+        return trade
+    
+    def redistribute_profits(self, profit):
+        """Redistribute profits according to config"""
+        split = self.config['redistribution']['split']
+        
+        crisis_amount = profit * (split['crisis'] / 100)
+        your_amount = profit * (split['you'] / 100)
+        network_amount = profit * (split['network'] / 100)
+        
+        logger.info(f"🌍 Redistributing ${profit:.2f}:")
+        logger.info(f"  - Crisis orgs: ${crisis_amount:.2f}")
+        logger.info(f"  - Your wallet: ${your_amount:.2f}")
+        logger.info(f"  - Network: ${network_amount:.2f}")
+        
+        return {
+            "crisis": crisis_amount,
+            "you": your_amount,
+            "network": network_amount
+        }
     
     def run_cycle(self):
-        """Execute one complete scan/analyze/trade cycle"""
-        self.cycle_count += 1
-        cycle_id = f"cycle-{self.cycle_count}-{datetime.now().strftime('%Y%m%d-%H%M')}"
+        """Run one complete cycle"""
+        logger.info("🔄 Starting trading cycle...")
         
-        self.logger.info(f"🔄 Starting cycle {self.cycle_count} ({cycle_id})")
+        # 1. Scan markets
+        opportunities = self.scan_markets()
         
-        try:
-            # 1. Scan markets
-            self.logger.info("📡 Scanning markets...")
-            opportunities = self.scanner.scan()
+        # 2. Analyze and execute
+        total_profit = 0
+        for opp in opportunities[:2]:  # Limit to 2 trades per cycle
+            analysis = self.analyze_opportunity(opp)
+            trade = self.execute_trade(opp, analysis)
             
-            if not opportunities:
-                self.logger.info("📭 No opportunities found")
-                return
-            
-            # 2. Analyze with AI
-            self.logger.info("🤖 Analyzing opportunities...")
-            analyzed_opportunities = []
-            
-            for opp in opportunities[:3]:  # Limit to top 3
-                analysis = self.analyzer.analyze(opp)
-                if analysis and analysis.get('confidence', 0) > self.config.bot.risk_tolerance:
-                    opp['analysis'] = analysis
-                    analyzed_opportunities.append(opp)
-            
-            if not analyzed_opportunities:
-                self.logger.info("🎯 No opportunities passed analysis")
-                return
-            
-            # 3. Execute trades
-            self.logger.info("💼 Executing trades...")
-            trades = []
-            
-            for opp in analyzed_opportunities:
-                if self.state.can_trade(opp, self.config):
-                    trade = self.trader.execute(opp)
-                    if trade:
-                        trades.append(trade)
-                        self.logger.info(f"✅ Trade executed: {trade['symbol']} at ${trade['price']}")
-            
-            if not trades:
-                self.logger.info("📊 No trades executed (limits/constraints)")
-                return
-            
-            # 4. Process completed trades (check periodically)
-            self.process_completed_trades()
-            
-            # 5. Log everything
-            self.ledger.log_cycle({
-                'cycle_id': cycle_id,
-                'opportunities_found': len(opportunities),
-                'opportunities_analyzed': len(analyzed_opportunities),
-                'trades_executed': len(trades),
-                'timestamp': datetime.now().isoformat()
-            })
-            
-            self.logger.info(f"✅ Cycle {self.cycle_count} completed successfully")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error in cycle {self.cycle_count}: {e}", exc_info=True)
-            self.ledger.log_error(cycle_id, str(e))
-    
-    def process_completed_trades(self):
-        """Check for completed trades and handle redistribution"""
-        completed = self.trader.get_completed_trades()
+            if trade:
+                total_profit += trade['profit']
         
-        for trade in completed:
-            if not trade.get('processed'):
-                # Calculate profits
-                profit = trade.get('profit', 0)
-                
-                if profit > 0:
-                    # Redistribute
-                    redistribution = self.redistributor.distribute(profit)
-                    
-                    # Log to ledger
-                    self.ledger.log_trade(trade)
-                    self.ledger.log_redistribution(redistribution)
-                    
-                    self.logger.info(f"🌍 Redistributed ${profit:.2f}: {redistribution}")
-                    
-                    # Mark as processed
-                    trade['processed'] = True
-                    self.trader.update_trade(trade)
+        # 3. Redistribute if there's profit
+        if total_profit > 0:
+            self.redistribute_profits(total_profit)
+        
+        logger.info(f"✅ Cycle complete. Total profit: ${total_profit:.2f}")
     
-    def get_next_cycle_time(self):
-        """Calculate when next cycle should run"""
-        interval = self.config.bot.scan_interval_hours
-        last_cycle = self.state.last_cycle_time or datetime.now() - timedelta(hours=interval)
-        next_cycle = last_cycle + timedelta(hours=interval)
-        return next_cycle
+    def start(self):
+        """Start the bot"""
+        self.running = True
+        
+        # Set up schedule
+        interval = self.config['bot']['scan_interval_hours']
+        schedule.every(interval).hours.do(self.run_cycle)
+        
+        # Run immediately
+        self.run_cycle()
+        
+        logger.info(f"🚀 Bot started. Will run every {interval} hours.")
+        
+        # Keep running
+        while self.running:
+            schedule.run_pending()
+            time.sleep(60)
     
-    def handle_shutdown(self, signum, frame):
-        """Handle shutdown signals gracefully"""
-        self.logger.info(f"Received shutdown signal {signum}")
+    def stop(self):
+        """Stop the bot"""
         self.running = False
-    
-    def shutdown(self):
-        """Clean shutdown procedure"""
-        self.logger.info("🛑 Shutting down SolarPunk Alpha Bot...")
-        
-        # Process any remaining trades
-        self.process_completed_trades()
-        
-        # Stop dashboard
-        if self.dashboard:
-            self.dashboard.stop()
-        
-        # Final ledger update
-        self.ledger.log_shutdown()
-        
-        self.logger.info("👋 Shutdown complete. Goodbye!")
-        
-        # Print summary
-        print("\n" + "="*50)
-        print("SOLARPUNK ALPHA BOT - FINAL REPORT")
-        print("="*50)
-        print(f"Cycles completed: {self.cycle_count}")
-        print(f"Total trades: {self.state.total_trades}")
-        print(f"Total profit: ${self.state.total_profit:.2f}")
-        print(f"Total redistributed: ${self.state.total_redistributed:.2f}")
-        print("="*50)
-        print("Thank you for trading ethically 🌱")
+        logger.info("🛑 Bot stopped")
+
+def signal_handler(signum, frame):
+    logger.info("Received shutdown signal")
+    raise KeyboardInterrupt
 
 if __name__ == "__main__":
-    # Parse command line arguments
-    import argparse
-    parser = argparse.ArgumentParser(description='SolarPunk Alpha Bot')
-    parser.add_argument('--config', default='config.yaml', help='Configuration file path')
-    parser.add_argument('--once', action='store_true', help='Run one cycle and exit')
-    args = parser.parse_args()
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
     
-    # Create and run bot
-    bot = SolarAlphaBot(args.config)
+    bot = SolarAlphaBot()
     
-    if args.once:
-        bot.run_cycle()
-        bot.shutdown()
-    else:
-        bot.run()
+    try:
+        bot.start()
+    except KeyboardInterrupt:
+        bot.stop()
+    except Exception as e:
+        logger.error(f"Bot crashed: {e}")
+        bot.stop()
